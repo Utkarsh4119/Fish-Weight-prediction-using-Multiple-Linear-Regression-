@@ -1,0 +1,254 @@
+---
+title: 'Multiple Linear Regression on fish Dataset '
+author: "Utkarsh"
+date: "2022-09-24"
+output:
+  word_document: default
+  html_document:
+    theme: cerulean
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+A fish market is a marketplace for selling fish and fish products. It can be dedicated to wholesale trade between fishermen and fish merchants, or to the sale of seafood to individual consumers, or to both. Retail fish markets, a type of wet market, often sell street food as well.
+
+## 1. Aim of the project
+
+Our Aim is to Exploratory Data analysis on the  7 species of fish data for market sale and explain the linear dependence of Weight of fish on the different  variables on the basis of Linear Regression.
+
+### Meanings of the Columns:
+
+* Species: Species name of fish
+* Weight: Weight of fish in gram
+* Length1: Vertical length in cm
+* Length2: Diagonal length in cm
+* Length3: Cross length in cm
+* Height: Height in cm
+* Width: Diagonal width in cm
+
+Our dependent variable is 'Weight'. Independent variables are 'species', different lengths, 'height' and 'width'.
+
+I will use independent variables (measurements of the fish) to estimate dependent variable (weight of the fish). 
+
+### Steps to follow:
+*   Download and preliminary analysis of data
+*   Linear Regression
+*   Multiple Regression
+*   Verifying Assumptions of Multiple Linear              Regression
+
+## 2. Importing Libraries
+
+The following Libraries would be used
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(GGally)
+library(car)
+library(MLmetrics)
+library(lmtest)
+
+```
+
+## 3. Importing and cleaning Dataset
+```{r}
+# Loading the dataset File
+library(readr)
+fish_data<- read.csv("C:/Users/utkar/OneDrive/Desktop/22N0063 R/Fish.csv")
+View(fish_data)
+head(fish_data)
+# Removing the Outliers
+fish_data=fish_data[-c(142,143,144,145),]
+View(fish_data)
+nrow(fish_data)
+```
+### Duplicate and Missing values
+```{r}
+anyDuplicated(fish_data)
+sum(is.na(fish_data))
+# Since our data doesn't contain any duplicate or na values we are done.
+```
+## 4. Exploring the dataset
+### 4.1 Summary of the dataset
+```{r}
+summary(fish_data)
+```
+## Barplot of the discrete Variable
+```{r}
+Species=fish_data$Species
+par(bg="#C3FDB8")
+T=table(Species)
+barplot(T,xlab="Species",ylab="Frequency",main = "Barplot of Species",col=rainbow(7),ylim=c(0,70),las=2)
+
+```
+
+## Histogram and barplot of the Continuous Variable
+```{r}
+par(bg="#FFCCFF")
+Length1=fish_data$Length1
+hist(Length1,col="red",border="yellow",ylim=c(0,35))
+Length2=fish_data$Length2
+hist(Length2,col="violet",border="yellow")
+Length3=fish_data$Length3
+hist(Length3,col="maroon",border="yellow")
+Height=fish_data$Height
+hist(Height,col="#00008B",border="yellow")
+Width=fish_data$Width
+hist(Width,col="#009999",border="yellow")
+Weight=fish_data$Weight
+hist(Weight,col="#996633",border="yellow")
+
+```
+
+## Boxplot of Continuous Variable
+ 
+```{r}
+par(bg="#FFFFE0")
+boxplot(Length1,xlab="Length1",ylab="value",col="green")
+boxplot(Length2,xlab="Length2",ylab="value",col="#7716D7")
+boxplot(Length3,xlab="Length3",ylab="value",col="#16F1E7")
+boxplot(Height,xlab="Height",ylab="value",col="#F9BE06")
+boxplot(Weight,xlab="Weight",ylab="value",col="#F978F7")
+boxplot(Width,xlab="Width",ylab="value",col="#E15D6B")
+```
+
+ We can See from the Boxplot of the Variables there are no significant outliers in our data
+
+##  Scatter Plot
+  
+```{r}
+ggplot(fish_data, aes(x=Height, y=Weight)) + geom_point()+geom_smooth(method = "lm")
+ggplot(fish_data, aes(x=Width, y=Weight)) + geom_point()+geom_smooth(method = "lm")
+ggplot(fish_data, aes(x=Length1, y=Weight)) + geom_point()+geom_smooth(method = "lm")
+ggplot(fish_data, aes(x=Length2, y=Weight)) + geom_point()+geom_smooth(method = "lm")
+ggplot(fish_data, aes(x=Length3, y=Weight)) + geom_point()+geom_smooth(method = "lm")
+```
+
+As we can see from Scatter plot all independent variables are positively related with the dependent variable (i.e. Weight). 
+
+##  Checking the Correlation between each variable
+
+```{r}
+par(bg="#E9C9F3")
+ggcorr(fish_data %>% select(-c(Species)) ,
+       label = TRUE, label_size = 2.9, hjust =1, layout.exp = 2, low = "steelblue", mid = "white", high = "darkred",label_color = "white", palette = "RdGy",col="blue")
+
+```
+We can see from correlation matrix that  independent variables length1,length2,length3 are highly correlated and two of them need to be eliminated from our regression model and width is also highly correlated with all the lengths so it should also be eliminated from regression model.
+
+## Modelling 
+### Test-Train Split
+
+Dividing the data into two parts training and Testing dataset randomly.
+```{r}
+fish_reg <- fish_data %>% 
+  select(-Species)
+set.seed(123)
+samplesize <- round(0.8 * nrow(fish_reg), 0)
+index <- sample(seq_len(nrow(fish_reg)), size = samplesize)
+data_train <- fish_reg[index, ]
+data_test <- fish_reg[-index, ]
+```
+
+## 5.Linear Regression
+```{r}
+fish_lm=lm(Weight~.,data=data_train)
+summary(fish_lm)
+
+```
+Looking on Pr(>|t|) column we will take significance level of 0.05. It means if the value Pr(>|t|) is below 0.05, than we can asume that the variable has significant effect toward the model. The summary of fish_lm shows four variables(Length1,Length3,Height and Width) are significant towards the model
+
+<center> <h3>Weight = -401.703+121.243(length1)-45.200 (Length3)+42.648(Height)+50.508(Width) </h3> </center>
+## 6.Step-Wise Regression
+using Step-wise regression to eliminate the redundant variables(using backward elimination).
+```{r}
+fish_lm_step <-step(fish_lm, direction = "backward")
+summary(fish_lm_step)
+```
+This step-wise regression method will produce an optimum formula based on the lowest AIC value. 
+We can see that the step wise regression eliminates the Length2 and Width variables to produce the smallest AIC. The selected variables are Length1, Length2, Height. Length1 and Height have a significant effect to our model fish_lm_step (Pr(>|t|) is below 0.05). We can check the Adjusted R-Squared value from fish_lm and fish_lm_step. The first model with complete variables has adjusted R-squared of 0.9048 or fish_lm model can explain 90.48% of variance in Fish Weight (independent variable). While the step-wise regression has adjusted R-squared of 0.948. There’s no difference with fish_lm and fish_lm_step.
+Looking at the p-value of Length3 we we can see that it is above 0.05 so it is not significant towards the model so dropping the Length3 variable from the Regression model
+```{r}
+fish_lm_step2=lm(Weight~Length1+Height,data=data_train)
+summary(fish_lm_step2)
+
+```
+## 7. Checking the Assumptions
+In Linear regression Method, there are a few assumption that need to be fulfilled. Suppose the assumptions are not satisfied, the result of the model may be inaccurate or misleading.
+
+Assumptions to be checked
+
+1.Linearity
+
+2.Normality
+
+3.Homoscedasticity
+
+4.Multicolinearity
+
+```{r}
+par(bg="#FFCCFF")
+plot(fish_lm_step2,col="#00008B",1)
+# To verify Linearity assumptions Residual vs Fitted should be linear but we are getting Quadratic curve so linearity assumption is violated.
+plot(fish_lm_step2,col="#00008B",2)
+# Normal Q-Q plot is used to examine whether the residuals are normally distributed. the residual do not exactly follow the dashed line so the normality assumption is violated.
+plot(fish_lm_step2,col="#00008B",3)
+# Used to check the homogeneity of variance of the residuals (homoscedasticity). Horizontal line with equally spread points is a good indication of homoscedasticity. Residuals are not uniformly distributed along predictors so it violates Homoscedasticity.
+vif(fish_lm_step2)
+# Multicollinearity is the occurrence of high intercorrelations among two or more independent variables in a multiple regression model. To check the multicollinearity, we can measure the variance inflation factor (VIF). There’s no multicollinearity when VIF<10 so our model doesn't have multicollinearity.
+
+```
+
+## 8.Improved Model
+
+```{r}
+fish_new <- fish_data  %>% 
+  mutate_if(~is.numeric(.), ~sqrt(.)) %>% 
+  select(Weight,Length1, Height)
+set.seed(123)
+data_train2 <- fish_new[index, ]
+data_test2 <- fish_new[-index, ]
+```
+## 9.Regression on Improved Model
+```{r}
+fish_lm_new <- lm(Weight ~ Length1+Height, data = data_train2)
+summary(fish_lm_new)
+```
+## 10. Verifying Assumptions of New Model
+```{r}
+par(bg="#D0F1F9")
+plot(fish_lm_new,col="blue")
+hist(fish_lm_new$residuals,breaks=20,main="Histogram of Residuals",col="red",ylim=c(0,35),border = "yellow",xlab="Residual values")
+
+plot(density(fish_lm_new$residuals),main="Density of Residuals",lwd=2)
+vif(fish_lm_new)
+
+```
+As we can see our all assumptions are satisfied
+
+1. Residual vs Fitted plot gives a straight line so Linearity assumption is satisfied
+
+2. Normal Q-Q plot of the residuals lies along the dashed line so the normality assum[ption is satisfied
+Histogram and Density plot also verifies normality assumption.
+
+3. We can see a horizontal line with equally spread points in scale location plot so Homoscedasticity is also verified.
+
+4. The Variance Inflation factor (VIF) shows a value less than 10 so data is not multicollinear.
+
+## 11. Prediction on the basis of New Model
+
+```{r}
+lm_pred2 <- predict(fish_lm_new, newdata = data_test2 %>% select(-Weight))
+par(bg="#D7DBDD")
+plot(data_test2$Weight,lm_pred2,xlab="Actual Value",ylab="predicted Value",main = "Plot of Actual vs Predicted value",cex=0.6,pch=19)
+abline(a=0, b=1,col="red",lwd=2)
+```
+
+As we can see from the above  scatter plot almost all of the predicted value lies close to the actual value we can conform the same from the red line as most of the value lies in the vicinity of the y=x line.
+
+## 12.Conclusion
+
+Variables that have a significant effect on weight of fish are length1 and height. we need to eliminate the variables Length2,Length3 and Width because these  variables have a high intercorrelation. We have transformed the data to square root and fulfilled all the assumptions of the linear regression. The final linear regression model has a Adjusted R-squared of  0.9321,it means that 93.21% of the variables can explain the variance in fish weight. For profitable business purposes,to increase the Weight of fish, fisherman needs to increase the Length1 and Height of each fish.
